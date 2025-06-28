@@ -361,3 +361,37 @@ header p {
     color: #666;
     font-weight: 500;
 }
+
+/* Preview Section */
+.preview-section {
+    max-height: 600px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.puzzle-preview-item {
+    margin-bottom: 30px;
+}
+
+.puzzle-preview-item h4 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.preview-grid .crossword-grid {
+    transform: scale(0.7);
+    transform-origin: top left;
+    margin-bottom: 10px;
+}
+
+.preview-clues .clues-section {
+    font-size: 0.9em;
+}
+
+.preview-clues .clue-item {
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+}

@@ -18,7 +18,39 @@ function showTab(tabName) {
     document.getElementById(tabName + '-tab').classList.add('active');
     
     // Add active class to clicked button
-    event.target.classList.add('active');
+    if (event && event.target) {
+        event.target.classList.add('active');
+    } else {
+        // Find and activate the correct button when called programmatically
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            if (btn.textContent.toLowerCase().includes(tabName)) {
+                btn.classList.add('active');
+            }
+        });
+    }
+}
+
+// Function to show tab programmatically
+function showTabByName(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById(tabName + '-tab').classList.add('active');
+    
+    // Activate the correct button
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.onclick && btn.onclick.toString().includes(tabName)) {
+            btn.classList.add('active');
+        }
+    });
 }
 
 // Initialize Event Listeners
@@ -91,6 +123,15 @@ async function handleBookGeneration(event) {
     updateProgress(0, 'Starting book generation...');
     
     try {
+        // Simulate progress for user feedback
+        const progressInterval = setInterval(() => {
+            const progressBar = document.getElementById('progress-fill');
+            const currentProgress = parseInt(progressBar.style.width) || 0;
+            if (currentProgress < 90) {
+                updateProgress(currentProgress + Math.random() * 10, `Generating puzzle ${Math.floor(currentProgress / (100 / data.puzzleCount)) + 1} of ${data.puzzleCount}...`);
+            }
+        }, 2000);
+        
         const response = await fetch('/api/generate-book', {
             method: 'POST',
             headers: {
@@ -99,22 +140,32 @@ async function handleBookGeneration(event) {
             body: JSON.stringify(data)
         });
         
+        clearInterval(progressInterval);
+        
         const result = await response.json();
         
         if (result.success) {
             currentBookData = result.bookData;
             currentPuzzles = result.bookData.puzzles;
-            updateProgress(100, 'Book generation complete!');
+            updateProgress(100, `Book generation complete! Generated ${result.bookData.puzzles.length} puzzles.`);
             displayBookResult(result.bookData);
             updateExportControls();
+            
+            // Automatically switch to preview tab after successful generation
+            setTimeout(() => {
+                showTabByName('preview');
+                loadPuzzlePreviews();
+            }, 2000);
         } else {
+            updateProgress(0, 'Generation failed!');
             alert('Error generating book: ' + result.error);
         }
     } catch (error) {
         console.error('Error:', error);
+        updateProgress(0, 'Generation failed!');
         alert('Failed to generate book. Please try again.');
     } finally {
-        setTimeout(() => showBookProgress(false), 2000);
+        setTimeout(() => showBookProgress(false), 3000);
     }
 }
 
@@ -357,6 +408,43 @@ function updateProgress(percent, message) {
 // Utility Functions
 function capitalize(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Load puzzle previews in the preview tab
+function loadPuzzlePreviews() {
+    const previewSection = document.getElementById('puzzle-preview');
+    
+    if (!currentPuzzles || currentPuzzles.length === 0) {
+        previewSection.innerHTML = '<p>No puzzles to preview. Generate puzzles first.</p>';
+        return;
+    }
+    
+    let previewHTML = '<h3>Puzzle Previews</h3>';
+    
+    // Show first 3 puzzles as preview
+    const previewCount = Math.min(3, currentPuzzles.length);
+    
+    for (let i = 0; i < previewCount; i++) {
+        const puzzle = currentPuzzles[i];
+        previewHTML += `
+            <div class="puzzle-preview-item">
+                <h4>Puzzle ${puzzle.puzzleNumber || i + 1} - ${capitalize(puzzle.theme)}</h4>
+                <div class="preview-grid">
+                    ${renderCrosswordGrid(puzzle)}
+                </div>
+                <div class="preview-clues">
+                    ${renderClues(puzzle.clues)}
+                </div>
+            </div>
+            <hr>
+        `;
+    }
+    
+    if (currentPuzzles.length > 3) {
+        previewHTML += `<p><strong>...and ${currentPuzzles.length - 3} more puzzles</strong></p>`;
+    }
+    
+    previewSection.innerHTML = previewHTML;
 }
 
 // Simulate progress for book generation

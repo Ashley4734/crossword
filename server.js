@@ -21,7 +21,7 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static('public'));
 
 // N8N Integration endpoints
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/crossword';
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://n8n.tealogik.com/webhook/crossword';
 
 // Root route
 app.get('/', (req, res) => {
@@ -78,20 +78,47 @@ app.post('/api/generate-book', async (req, res) => {
     let puzzles = [];
     
     if (useN8N) {
-      // Use N8N workflow for batch generation
-      const response = await axios.post(N8N_WEBHOOK_URL, {
-        puzzleCount: puzzleCount,
-        batchSize: 10,
-        bookTheme: theme,
-        difficulty: difficulty,
-        bookTitle: bookTitle
-      });
-      
-      // Handle batch response
-      if (response.data && Array.isArray(response.data)) {
-        puzzles = response.data;
-      } else {
-        puzzles = [response.data];
+      // Generate puzzles one by one using N8N workflow
+      for (let i = 0; i < puzzleCount; i++) {
+        try {
+          console.log(`Generating puzzle ${i + 1} of ${puzzleCount}`);
+          
+          const response = await axios.post(N8N_WEBHOOK_URL, {
+            puzzleCount: 1,
+            batchSize: 1,
+            bookTheme: theme,
+            difficulty: difficulty,
+            bookTitle: `${bookTitle} - Puzzle ${i + 1}`
+          }, {
+            timeout: 60000 // 60 second timeout per puzzle
+          });
+          
+          // Extract puzzle from response
+          let puzzle;
+          if (response.data && response.data.puzzle) {
+            puzzle = response.data.puzzle;
+            puzzle.puzzleNumber = i + 1;
+          } else if (response.data) {
+            puzzle = response.data;
+            puzzle.puzzleNumber = i + 1;
+          } else {
+            throw new Error('Invalid response format');
+          }
+          
+          puzzles.push(puzzle);
+          
+          // Small delay between requests to avoid overwhelming N8N
+          if (i < puzzleCount - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          
+        } catch (puzzleError) {
+          console.error(`Error generating puzzle ${i + 1}:`, puzzleError.message);
+          
+          // Generate fallback puzzle locally
+          const fallbackPuzzle = await generateLocalPuzzle(theme, difficulty, i + 1);
+          puzzles.push(fallbackPuzzle);
+        }
       }
     } else {
       // Generate locally in batches
@@ -108,14 +135,15 @@ app.post('/api/generate-book', async (req, res) => {
         theme: theme,
         difficulty: difficulty,
         puzzleCount: puzzles.length,
-        puzzles: puzzles
+        puzzles: puzzles,
+        includeAnswers: includeAnswers
       }
     });
   } catch (error) {
     console.error('Error generating book:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate book'
+      error: 'Failed to generate book: ' + error.message
     });
   }
 });
@@ -124,6 +152,15 @@ app.post('/api/generate-book', async (req, res) => {
 app.post('/api/export-pdf', async (req, res) => {
   try {
     const { puzzles, bookTitle, includeAnswers = true } = req.body;
+    
+    if (!puzzles || puzzles.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No puzzles provided for export'
+      });
+    }
+    
+    console.log(`Exporting ${puzzles.length} puzzles to PDF...`);
     
     // Generate puzzle PDF
     const puzzlePdfPath = await generatePuzzlePDF(puzzles, bookTitle);
@@ -147,10 +184,21 @@ app.post('/api/export-pdf', async (req, res) => {
     console.error('Error exporting PDF:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to export PDF'
+      error: 'Failed to export PDF: ' + error.message
     });
   }
 });
+
+// Progress endpoint for book generation
+app.get('/api/book-progress/:sessionId', (req, res) => {
+  const sessionId = req.params.sessionId;
+  const progress = bookProgress.get(sessionId) || { completed: 0, total: 0, status: 'not_found' };
+  
+  res.json(progress);
+});
+
+// Store book generation progress
+const bookProgress = new Map();
 
 // Download generated files
 app.get('/downloads/:filename', (req, res) => {
