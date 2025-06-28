@@ -3,10 +3,13 @@ let currentPuzzles = [];
 let currentBookData = null;
 
 // Tab Management
-function showTab(tabName) {
+function showTab(tabName, clickedButton = null) {
+    console.log('showTab called with:', tabName, clickedButton);
+    
     // Hide all tabs
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
+        console.log('Hiding tab:', tab.id);
     });
     
     // Remove active class from all buttons
@@ -15,16 +18,29 @@ function showTab(tabName) {
     });
     
     // Show selected tab
-    document.getElementById(tabName + '-tab').classList.add('active');
+    const targetTab = document.getElementById(tabName + '-tab');
+    console.log('Target tab:', tabName + '-tab', targetTab);
+    
+    if (targetTab) {
+        targetTab.classList.add('active');
+        console.log('Activated tab:', targetTab.id);
+    } else {
+        console.error('Tab not found:', tabName + '-tab');
+    }
     
     // Add active class to clicked button
-    if (event && event.target) {
-        event.target.classList.add('active');
+    if (clickedButton) {
+        clickedButton.classList.add('active');
+        console.log('Activated button:', clickedButton.textContent);
     } else {
         // Find and activate the correct button when called programmatically
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            if (btn.textContent.toLowerCase().includes(tabName)) {
+            const btnText = btn.textContent.toLowerCase();
+            if ((tabName === 'single' && btnText.includes('single')) ||
+                (tabName === 'book' && btnText.includes('book')) ||
+                (tabName === 'preview' && btnText.includes('preview'))) {
                 btn.classList.add('active');
+                console.log('Programmatically activated button:', btn.textContent);
             }
         });
     }
@@ -55,15 +71,44 @@ function showTabByName(tabName) {
 
 // Initialize Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing event listeners...');
+    
     // Single puzzle form
-    document.getElementById('single-puzzle-form').addEventListener('submit', handleSinglePuzzle);
+    const singleForm = document.getElementById('single-puzzle-form');
+    if (singleForm) {
+        singleForm.addEventListener('submit', handleSinglePuzzle);
+        console.log('Single puzzle form listener added');
+    }
     
     // Book generation form
-    document.getElementById('book-form').addEventListener('submit', handleBookGeneration);
+    const bookForm = document.getElementById('book-form');
+    if (bookForm) {
+        bookForm.addEventListener('submit', handleBookGeneration);
+        console.log('Book form listener added');
+    }
     
     // Export buttons
-    document.getElementById('export-pdf').addEventListener('click', exportPDF);
-    document.getElementById('export-images').addEventListener('click', exportImages);
+    const exportPdfBtn = document.getElementById('export-pdf');
+    const exportImagesBtn = document.getElementById('export-images');
+    
+    if (exportPdfBtn) {
+        exportPdfBtn.addEventListener('click', exportPDF);
+        console.log('Export PDF listener added');
+    }
+    
+    if (exportImagesBtn) {
+        exportImagesBtn.addEventListener('click', exportImages);
+        console.log('Export images listener added');
+    }
+    
+    // Test tab elements
+    console.log('Tab elements check:');
+    console.log('single-tab:', document.getElementById('single-tab'));
+    console.log('book-tab:', document.getElementById('book-tab'));
+    console.log('preview-tab:', document.getElementById('preview-tab'));
+    
+    // Initial state
+    updateExportControls();
 });
 
 // Handle Single Puzzle Generation
