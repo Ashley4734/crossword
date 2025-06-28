@@ -66,7 +66,7 @@ app.post('/api/generate-puzzle', async (req, res) => {
         console.log('Sending to N8N:', requestData);
         
         const response = await axios.post(N8N_WEBHOOK_URL, requestData, {
-          timeout: 60000,
+          timeout: 30000, // Reduced to 30 seconds
           headers: {
             'Content-Type': 'application/json'
           }
@@ -245,6 +245,43 @@ app.get('/api/book-progress/:sessionId', (req, res) => {
   const progress = bookProgress.get(sessionId) || { completed: 0, total: 0, status: 'not_found' };
   
   res.json(progress);
+});
+
+// Health check endpoint for N8N connectivity
+app.get('/api/test-n8n', async (req, res) => {
+  try {
+    console.log('Testing N8N connectivity to:', N8N_WEBHOOK_URL);
+    
+    const response = await axios.post(N8N_WEBHOOK_URL, {
+      test: true,
+      puzzleCount: 1,
+      batchSize: 1,
+      bookTheme: 'general',
+      difficulty: 'medium',
+      bookTitle: 'Test Connection'
+    }, {
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    res.json({
+      success: true,
+      status: response.status,
+      message: 'N8N connection successful',
+      data: response.data
+    });
+    
+  } catch (error) {
+    console.error('N8N test failed:', error.message);
+    res.json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      url: N8N_WEBHOOK_URL
+    });
+  }
 });
 
 // Store book generation progress
