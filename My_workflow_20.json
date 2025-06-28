@@ -1,0 +1,273 @@
+{
+  "name": "My workflow 20",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/webhook/crossword",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "01874e85-4297-4fbc-be45-6f010aed8ef2",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        20
+      ],
+      "webhookId": "2a3599cc-a9d9-497e-99e9-c46a2b06708f"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Batch Configuration\nconst config = {\n  totalPuzzles: $json.puzzleCount || 100,\n  batchSize: $json.batchSize || 10,\n  theme: $json.bookTheme || 'general',\n  difficulty: $json.difficulty || 'medium',\n  bookTitle: $json.bookTitle || 'Crossword Puzzles'\n};\n\n// Theme-specific word prompts\nconst themePrompts = {\n  general: 'common English words suitable for crosswords including animals, objects, actions, and everyday terms',\n  movies: 'movie titles, famous actors, directors, film genres, cinema terms, and entertainment industry words',\n  sports: 'sports terms, famous athletes, team names, equipment, game rules, and athletic activities',\n  science: 'scientific terms, chemical elements, biology concepts, physics terms, and natural phenomena',\n  history: 'historical events, famous figures, important dates, ancient civilizations, and historical places',\n  geography: 'countries, capital cities, famous landmarks, rivers, mountains, and geographical features',\n  literature: 'famous authors, book titles, literary terms, characters, and writing concepts',\n  food: 'cooking terms, ingredients, cuisines, kitchen tools, and food-related vocabulary',\n  music: 'musical instruments, composers, song terms, genres, and music theory concepts',\n  animals: 'animal names, habitats, species, wildlife terms, and nature-related vocabulary'\n};\n\nreturn [{\n  ...config,\n  wordPrompt: themePrompts[config.theme] || themePrompts.general,\n  puzzles: [],\n  currentBatch: 0\n}];"
+      },
+      "id": "8f3dadf5-14c7-4105-8d24-36a84dfe55e3",
+      "name": "Batch Controller",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "url": "https://api.replicate.com/v1/predictions",
+        "jsonParameters": true,
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "e2740d95-c3b6-4a94-81b3-f712ea476955",
+      "name": "Generate Word List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        20
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "71ndy03xUmI9HAIF",
+          "name": "Replicate"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced Crossword Grid Generation Algorithm\nfunction generateCrosswordGrid(wordList, puzzleNumber, difficulty, theme) {\n  const GRID_SIZE = 15;\n  const grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(''));\n  const placedWords = [];\n  \n  // Extract words from AI response\n  let words = [];\n  if (typeof wordList === 'string') {\n    words = wordList\n      .split('\\n')\n      .map(w => w.trim().toUpperCase())\n      .filter(w => w.length >= 3 && w.length <= 15 && /^[A-Z]+$/.test(w))\n      .slice(0, 150);\n  } else if (Array.isArray(wordList)) {\n    words = wordList\n      .map(w => String(w).trim().toUpperCase())\n      .filter(w => w.length >= 3 && w.length <= 15 && /^[A-Z]+$/.test(w))\n      .slice(0, 150);\n  }\n  \n  if (words.length === 0) {\n    // Fallback words if AI fails\n    words = ['WORD', 'PUZZLE', 'GAME', 'BRAIN', 'THINK', 'SOLVE', 'CLUE', 'GRID', 'CROSS', 'DOWN', 'ACROSS', 'LETTER'];\n  }\n  \n  // Remove duplicates\n  words = [...new Set(words)];\n  \n  // Target word count based on difficulty\n  const targetWords = {\n    'easy': 65,\n    'medium': 72,\n    'hard': 78\n  }[difficulty] || 72;\n  \n  // Sort words by length (longest first for better placement)\n  const sortedWords = words.sort((a, b) => b.length - a.length);\n  \n  // Place first word in center horizontally\n  const firstWord = sortedWords[0];\n  const centerRow = Math.floor(GRID_SIZE / 2);\n  const startCol = Math.floor((GRID_SIZE - firstWord.length) / 2);\n  \n  // Place first word\n  for (let i = 0; i < firstWord.length; i++) {\n    grid[centerRow][startCol + i] = firstWord[i];\n  }\n  \n  placedWords.push({\n    word: firstWord,\n    row: centerRow,\n    col: startCol,\n    direction: 'across',\n    number: 1,\n    clue: ''\n  });\n  \n  // Place remaining words\n  let wordNumber = 2;\n  let attempts = 0;\n  const maxAttempts = sortedWords.length * 15;\n  \n  for (let i = 1; i < sortedWords.length && placedWords.length < targetWords && attempts < maxAttempts; i++) {\n    attempts++;\n    const word = sortedWords[i % sortedWords.length]; // Cycle through words if needed\n    \n    // Skip if word already placed\n    if (placedWords.some(p => p.word === word)) continue;\n    \n    const placement = findBestPlacement(grid, word, placedWords, GRID_SIZE);\n    \n    if (placement) {\n      placeWordInGrid(grid, word, placement);\n      placement.number = wordNumber++;\n      placement.word = word;\n      placement.clue = '';\n      placedWords.push(placement);\n    }\n  }\n  \n  // Fill black squares for symmetry\n  createSymmetricBlackSquares(grid, GRID_SIZE);\n  \n  return {\n    puzzleNumber,\n    grid,\n    placedWords: assignNumbers(placedWords, grid, GRID_SIZE),\n    theme,\n    difficulty\n  };\n}\n\nfunction findBestPlacement(grid, word, placedWords, gridSize) {\n  const placements = [];\n  \n  // Try to intersect with existing words\n  for (const placedWord of placedWords) {\n    // Check for letter intersections\n    for (let i = 0; i < word.length; i++) {\n      for (let j = 0; j < placedWord.word.length; j++) {\n        if (word[i] === placedWord.word[j]) {\n          // Try placing perpendicular to existing word\n          const newDirection = placedWord.direction === 'across' ? 'down' : 'across';\n          \n          let newRow, newCol;\n          if (newDirection === 'across') {\n            newRow = placedWord.row + j;\n            newCol = placedWord.col - i;\n          } else {\n            newRow = placedWord.row - i;\n            newCol = placedWord.col + j;\n          }\n          \n          if (canPlaceWord(grid, word, newRow, newCol, newDirection, gridSize)) {\n            placements.push({\n              row: newRow,\n              col: newCol,\n              direction: newDirection,\n              score: calculatePlacementScore(grid, word, newRow, newCol, newDirection, gridSize, placedWords)\n            });\n          }\n        }\n      }\n    }\n  }\n  \n  // If no intersections found, try placing in empty spaces\n  if (placements.length === 0 && placedWords.length < 10) {\n    for (let row = 1; row < gridSize - 1; row++) {\n      for (let col = 1; col < gridSize - word.length - 1; col++) {\n        if (canPlaceWord(grid, word, row, col, 'across', gridSize)) {\n          placements.push({\n            row: row,\n            col: col,\n            direction: 'across',\n            score: calculatePlacementScore(grid, word, row, col, 'across', gridSize, placedWords)\n          });\n        }\n        if (canPlaceWord(grid, word, row, col, 'down', gridSize)) {\n          placements.push({\n            row: row,\n            col: col,\n            direction: 'down',\n            score: calculatePlacementScore(grid, word, row, col, 'down', gridSize, placedWords)\n          });\n        }\n      }\n    }\n  }\n  \n  // Return best placement (highest score)\n  return placements.sort((a, b) => b.score - a.score)[0] || null;\n}\n\nfunction canPlaceWord(grid, word, row, col, direction, gridSize) {\n  // Check bounds\n  if (direction === 'across') {\n    if (col < 0 || col + word.length > gridSize || row < 0 || row >= gridSize) {\n      return false;\n    }\n  } else {\n    if (row < 0 || row + word.length > gridSize || col < 0 || col >= gridSize) {\n      return false;\n    }\n  }\n  \n  // Check if word fits without conflicts\n  for (let i = 0; i < word.length; i++) {\n    const checkRow = direction === 'across' ? row : row + i;\n    const checkCol = direction === 'across' ? col + i : col;\n    \n    const existingLetter = grid[checkRow][checkCol];\n    if (existingLetter !== '' && existingLetter !== word[i] && existingLetter !== '■') {\n      return false;\n    }\n  }\n  \n  // Check for adjacent words (ensure proper spacing)\n  for (let i = 0; i < word.length; i++) {\n    const checkRow = direction === 'across' ? row : row + i;\n    const checkCol = direction === 'across' ? col + i : col;\n    \n    // Check perpendicular adjacent cells\n    const adjacentCells = direction === 'across' \n      ? [[checkRow - 1, checkCol], [checkRow + 1, checkCol]]\n      : [[checkRow, checkCol - 1], [checkRow, checkCol + 1]];\n    \n    for (const [adjRow, adjCol] of adjacentCells) {\n      if (adjRow >= 0 && adjRow < gridSize && adjCol >= 0 && adjCol < gridSize) {\n        if (grid[adjRow][adjCol] !== '' && grid[adjRow][adjCol] !== '■' && grid[checkRow][checkCol] === '') {\n          return false; // Would create invalid adjacency\n        }\n      }\n    }\n  }\n  \n  return true;\n}\n\nfunction placeWordInGrid(grid, word, placement) {\n  for (let i = 0; i < word.length; i++) {\n    const row = placement.direction === 'across' ? placement.row : placement.row + i;\n    const col = placement.direction === 'across' ? placement.col + i : placement.col;\n    grid[row][col] = word[i];\n  }\n}\n\nfunction calculatePlacementScore(grid, word, row, col, direction, gridSize, placedWords) {\n  let score = 0;\n  \n  // Prefer central placements\n  const centerRow = Math.floor(gridSize / 2);\n  const centerCol = Math.floor(gridSize / 2);\n  const distance = Math.abs(row - centerRow) + Math.abs(col - centerCol);\n  score += (gridSize - distance) * 2;\n  \n  // Count intersections (higher is better)\n  let intersections = 0;\n  for (let i = 0; i < word.length; i++) {\n    const checkRow = direction === 'across' ? row : row + i;\n    const checkCol = direction === 'across' ? col + i : col;\n    \n    if (grid[checkRow] && grid[checkRow][checkCol] === word[i]) {\n      intersections++;\n    }\n  }\n  score += intersections * 15;\n  \n  // Prefer words that connect to multiple existing words\n  score += Math.min(placedWords.length, 5) * 3;\n  \n  return score;\n}\n\nfunction createSymmetricBlackSquares(grid, gridSize) {\n  // Fill remaining empty cells as black squares with rotational symmetry\n  for (let row = 0; row < gridSize; row++) {\n    for (let col = 0; col < gridSize; col++) {\n      if (grid[row][col] === '') {\n        const symmetricRow = gridSize - 1 - row;\n        const symmetricCol = gridSize - 1 - col;\n        \n        if (grid[symmetricRow] && grid[symmetricRow][symmetricCol] === '') {\n          grid[row][col] = '■';\n          grid[symmetricRow][symmetricCol] = '■';\n        }\n      }\n    }\n  }\n}\n\nfunction assignNumbers(placedWords, grid, gridSize) {\n  // Create a map of starting positions to numbers\n  const positions = new Map();\n  \n  // Sort words by position (top to bottom, left to right)\n  const sortedWords = placedWords.sort((a, b) => {\n    if (a.row !== b.row) return a.row - b.row;\n    return a.col - b.col;\n  });\n  \n  let number = 1;\n  \n  for (const word of sortedWords) {\n    const key = `${word.row},${word.col}`;\n    \n    if (!positions.has(key)) {\n      positions.set(key, number++);\n    }\n    \n    word.number = positions.get(key);\n  }\n  \n  return placedWords;\n}\n\n// Main execution\ntry {\n  // Get the word list from previous node\n  const response = $json;\n  let wordList = '';\n  \n  // Handle different response formats from Replicate\n  if (response.output) {\n    wordList = Array.isArray(response.output) ? response.output.join('\\n') : response.output;\n  } else if (response.prediction && response.prediction.output) {\n    wordList = Array.isArray(response.prediction.output) ? response.prediction.output.join('\\n') : response.prediction.output;\n  } else if (typeof response === 'string') {\n    wordList = response;\n  } else {\n    wordList = JSON.stringify(response);\n  }\n  \n  // Generate the puzzle\n  const puzzle = generateCrosswordGrid(wordList, 1, $('Batch Controller').item.json.difficulty, $('Batch Controller').item.json.theme);\n  \n  return [puzzle];\n  \n} catch (error) {\n  // Fallback puzzle generation\n  console.error('Grid generation error:', error);\n  \n  const fallbackWords = ['WORD', 'PUZZLE', 'GAME', 'BRAIN', 'THINK', 'SOLVE', 'CLUE', 'GRID', 'CROSS', 'DOWN', 'ACROSS', 'LETTER', 'BOOK', 'PAGE', 'LINE', 'TEXT'];\n  const puzzle = generateCrosswordGrid(fallbackWords.join('\\n'), 1, 'medium', 'general');\n  \n  return [puzzle];\n}"
+      },
+      "id": "d8602e33-7fe0-4c0e-b6d3-7da4695c95eb",
+      "name": "Generate Crossword Grid",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare words for clue generation\nconst puzzle = $json;\nconst wordsToProcess = puzzle.placedWords || [];\n\n// Return array of words that need clues\nreturn wordsToProcess.map(wordData => ({\n  word: wordData.word,\n  number: wordData.number,\n  direction: wordData.direction,\n  theme: puzzle.theme,\n  difficulty: puzzle.difficulty,\n  puzzleData: puzzle\n}));"
+      },
+      "id": "9387139a-6b0b-4128-a6d1-d148748ec289",
+      "name": "Prepare Clue Generation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "20f1b53e-0a62-44a7-9950-dbd60b77b1b6",
+      "name": "Split Words",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        160,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "url": "https://api.replicate.com/v1/predictions",
+        "jsonParameters": true,
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "469447a0-9bd0-4606-8760-5eabedd60488",
+      "name": "Generate Clues",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        160,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "mergeByIndex",
+        "options": {}
+      },
+      "id": "caf82de8-694a-4257-bf33-8979f1d5b240",
+      "name": "Merge Clues",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        280,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine generated clues with puzzle data\nconst allClues = $input.all();\nconst firstClue = allClues[0].json;\nconst puzzleData = firstClue.puzzleData;\n\n// Group clues by direction\nconst acrossClues = [];\nconst downClues = [];\n\nfor (const item of allClues) {\n  const clueData = item.json;\n  \n  // Extract clue text from Replicate response\n  let clueText = '';\n  if (clueData.output) {\n    clueText = Array.isArray(clueData.output) ? clueData.output.join('') : clueData.output;\n  } else if (clueData.prediction && clueData.prediction.output) {\n    clueText = Array.isArray(clueData.prediction.output) ? clueData.prediction.output.join('') : clueData.prediction.output;\n  } else {\n    clueText = `Clue for ${clueData.word}`;\n  }\n  \n  // Clean up the clue text\n  clueText = clueText.trim().replace(/^[\"']|[\"']$/g, ''); // Remove quotes\n  \n  const clue = {\n    number: clueData.number,\n    clue: clueText,\n    answer: clueData.word\n  };\n  \n  if (clueData.direction === 'across') {\n    acrossClues.push(clue);\n  } else {\n    downClues.push(clue);\n  }\n}\n\n// Sort clues by number\nacrossClues.sort((a, b) => a.number - b.number);\ndownClues.sort((a, b) => a.number - b.number);\n\n// Return complete puzzle\nreturn [{\n  puzzleNumber: puzzleData.puzzleNumber || 1,\n  theme: puzzleData.theme,\n  difficulty: puzzleData.difficulty,\n  grid: puzzleData.grid,\n  clues: {\n    across: acrossClues,\n    down: downClues\n  },\n  metadata: {\n    generated: new Date().toISOString(),\n    totalWords: acrossClues.length + downClues.length,\n    gridSize: puzzleData.grid ? puzzleData.grid.length : 15\n  }\n}];"
+      },
+      "id": "a54a7acf-d184-481a-a59c-39170fc25c66",
+      "name": "Combine Puzzle Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{{ $json }}",
+        "options": {}
+      },
+      "id": "ce0cb7d9-e63f-4e54-8d3d-c4ef9f074a2d",
+      "name": "Return Puzzle",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        600,
+        20
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Batch Controller",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Controller": {
+      "main": [
+        [
+          {
+            "node": "Generate Word List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Word List": {
+      "main": [
+        [
+          {
+            "node": "Generate Crossword Grid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Crossword Grid": {
+      "main": [
+        [
+          {
+            "node": "Prepare Clue Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Clue Generation": {
+      "main": [
+        [
+          {
+            "node": "Split Words",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Words": {
+      "main": [
+        [
+          {
+            "node": "Generate Clues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Clues": {
+      "main": [
+        [
+          {
+            "node": "Merge Clues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Clues": {
+      "main": [
+        [
+          {
+            "node": "Combine Puzzle Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Puzzle Data": {
+      "main": [
+        [
+          {
+            "node": "Return Puzzle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "130648ec-abff-4c3a-bb41-362d9aa5f2f1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4c8605533c99b071371f4355d5011e8d6d6006c79310f0b9520036f1504beb9a"
+  },
+  "id": "sgbsuZWUKQ6xXYsm",
+  "tags": []
+}

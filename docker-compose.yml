@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  crossword-generator:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://n8n:5678/webhook/crossword}
+    volumes:
+      - ./downloads:/app/downloads
+    restart: unless-stopped
+    depends_on:
+      - redis
+    networks:
+      - crossword-network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - crossword-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl/certs:ro
+    depends_on:
+      - crossword-generator
+    restart: unless-stopped
+    networks:
+      - crossword-network
+
+volumes:
+  redis-data:
+
+networks:
+  crossword-network:
+    driver: bridge

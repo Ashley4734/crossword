@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crossword KDP Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧩 Crossword KDP Generator</h1>
+            <p>Generate professional crossword puzzles for Amazon KDP publishing</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('single')">Single Puzzle</button>
+            <button class="tab-btn" onclick="showTab('book')">Book Generation</button>
+            <button class="tab-btn" onclick="showTab('preview')">Preview & Export</button>
+        </div>
+
+        <!-- Single Puzzle Tab -->
+        <div id="single-tab" class="tab-content active">
+            <div class="form-section">
+                <h2>Generate Single Puzzle</h2>
+                <form id="single-puzzle-form">
+                    <div class="form-group">
+                        <label for="single-theme">Theme:</label>
+                        <select id="single-theme" name="theme">
+                            <option value="general">General Knowledge</option>
+                            <option value="animals">Animals</option>
+                            <option value="food">Food & Cooking</option>
+                            <option value="sports">Sports</option>
+                            <option value="movies">Movies & Entertainment</option>
+                            <option value="science">Science</option>
+                            <option value="history">History</option>
+                            <option value="geography">Geography</option>
+                            <option value="literature">Literature</option>
+                            <option value="music">Music</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="single-difficulty">Difficulty:</label>
+                        <select id="single-difficulty" name="difficulty">
+                            <option value="easy">Easy (50+ words)</option>
+                            <option value="medium" selected>Medium (70+ words)</option>
+                            <option value="hard">Hard (85+ words)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="use-n8n-single" name="useN8N" checked>
+                            Use N8N workflow for AI-powered generation
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Generate Puzzle</button>
+                </form>
+            </div>
+            
+            <div id="single-result" class="result-section" style="display: none;">
+                <h3>Generated Puzzle</h3>
+                <div id="single-puzzle-display"></div>
+            </div>
+        </div>
+
+        <!-- Book Generation Tab -->
+        <div id="book-tab" class="tab-content">
+            <div class="form-section">
+                <h2>Generate KDP Book</h2>
+                <form id="book-form">
+                    <div class="form-group">
+                        <label for="book-title">Book Title:</label>
+                        <input type="text" id="book-title" name="bookTitle" value="Crossword Puzzle Book" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="book-theme">Theme:</label>
+                        <select id="book-theme" name="theme">
+                            <option value="general">General Knowledge</option>
+                            <option value="animals">Animals</option>
+                            <option value="food">Food & Cooking</option>
+                            <option value="sports">Sports</option>
+                            <option value="movies">Movies & Entertainment</option>
+                            <option value="science">Science</option>
+                            <option value="history">History</option>
+                            <option value="geography">Geography</option>
+                            <option value="literature">Literature</option>
+                            <option value="music">Music</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="book-difficulty">Difficulty:</label>
+                        <select id="book-difficulty" name="difficulty">
+                            <option value="easy">Easy</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="puzzle-count">Number of Puzzles:</label>
+                        <select id="puzzle-count" name="puzzleCount">
+                            <option value="25">25 Puzzles</option>
+                            <option value="50" selected>50 Puzzles</option>
+                            <option value="75">75 Puzzles</option>
+                            <option value="100">100 Puzzles</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="include-answers" name="includeAnswers" checked>
+                            Include answer key
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="use-n8n-book" name="useN8N" checked>
+                            Use N8N workflow for AI-powered generation
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Generate Book</button>
+                </form>
+            </div>
+            
+            <div id="book-progress" class="progress-section" style="display: none;">
+                <h3>Generating Book...</h3>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <p id="progress-text">Starting generation...</p>
+            </div>
+            
+            <div id="book-result" class="result-section" style="display: none;">
+                <h3>Book Generated Successfully</h3>
+                <div id="book-details"></div>
+            </div>
+        </div>
+
+        <!-- Preview & Export Tab -->
+        <div id="preview-tab" class="tab-content">
+            <div class="form-section">
+                <h2>Preview & Export</h2>
+                <div id="export-controls" style="display: none;">
+                    <button id="export-pdf" class="btn btn-primary">Export as PDF</button>
+                    <button id="export-images" class="btn btn-secondary">Export as Images</button>
+                </div>
+                <div id="no-puzzles" class="notice">
+                    Generate puzzles first to see preview and export options.
+                </div>
+            </div>
+            
+            <div id="puzzle-preview" class="preview-section">
+                <!-- Puzzle previews will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Generating puzzles...</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
