@@ -47,22 +47,57 @@ app.post('/api/generate-puzzle', async (req, res) => {
   try {
     const { theme = 'general', difficulty = 'medium', useN8N = false } = req.body;
     
+    console.log('Generating puzzle with:', { theme, difficulty, useN8N });
+    console.log('N8N_WEBHOOK_URL:', N8N_WEBHOOK_URL);
+    
     let puzzleData;
     
     if (useN8N) {
-      // Use N8N workflow
-      const response = await axios.post(N8N_WEBHOOK_URL, {
-        puzzleCount: 1,
-        batchSize: 1,
-        bookTheme: theme,
-        difficulty: difficulty,
-        bookTitle: 'Single Puzzle'
-      });
-      puzzleData = response.data;
+      console.log('Using N8N workflow...');
+      try {
+        // Use N8N workflow
+        const requestData = {
+          puzzleCount: 1,
+          batchSize: 1,
+          bookTheme: theme,
+          difficulty: difficulty,
+          bookTitle: 'Single Puzzle'
+        };
+        console.log('Sending to N8N:', requestData);
+        
+        const response = await axios.post(N8N_WEBHOOK_URL, requestData, {
+          timeout: 60000,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('N8N Response status:', response.status);
+        console.log('N8N Response data:', JSON.stringify(response.data, null, 2));
+        
+        // Handle N8N response format
+        if (response.data && response.data.puzzle) {
+          puzzleData = response.data.puzzle;
+        } else if (response.data) {
+          puzzleData = response.data;
+        } else {
+          throw new Error('Invalid N8N response format');
+        }
+        
+      } catch (n8nError) {
+        console.error('N8N Error:', n8nError.message);
+        console.log('Falling back to local generation...');
+        
+        // Fallback to local generation
+        puzzleData = await generateLocalPuzzle(theme, difficulty);
+      }
     } else {
+      console.log('Using local generator...');
       // Use local generator
       puzzleData = await generateLocalPuzzle(theme, difficulty);
     }
+    
+    console.log('Final puzzle data:', JSON.stringify(puzzleData, null, 2));
     
     res.json({
       success: true,
@@ -70,9 +105,10 @@ app.post('/api/generate-puzzle', async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating puzzle:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      error: 'Failed to generate puzzle'
+      error: 'Failed to generate puzzle: ' + error.message
     });
   }
 });

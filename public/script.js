@@ -132,6 +132,7 @@ async function handleSinglePuzzle(event) {
         useN8N: formData.get('useN8N') === 'on'
     };
     
+    console.log('Submitting single puzzle request:', data);
     showLoading(true);
     
     try {
@@ -143,18 +144,21 @@ async function handleSinglePuzzle(event) {
             body: JSON.stringify(data)
         });
         
+        console.log('Response status:', response.status);
         const result = await response.json();
+        console.log('Response data:', result);
         
         if (result.success) {
             currentPuzzles = [result.puzzle];
             displaySinglePuzzle(result.puzzle);
             updateExportControls();
         } else {
+            console.error('Server error:', result.error);
             alert('Error generating puzzle: ' + result.error);
         }
     } catch (error) {
-        console.error('Error:', error);
-        alert('Failed to generate puzzle. Please try again.');
+        console.error('Network/Parse error:', error);
+        alert('Failed to generate puzzle. Please check console for details.');
     } finally {
         showLoading(false);
     }
