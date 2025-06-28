@@ -73,6 +73,16 @@ function showTabByName(tabName) {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing event listeners...');
     
+    // Tab button listeners
+    document.querySelectorAll('.tab-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            console.log('Tab button clicked:', tabName);
+            showTab(tabName, this);
+        });
+    });
+    console.log('Tab button listeners added');
+    
     // Single puzzle form
     const singleForm = document.getElementById('single-puzzle-form');
     if (singleForm) {
