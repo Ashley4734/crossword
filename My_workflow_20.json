@@ -33,28 +33,55 @@
     },
     {
       "parameters": {
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "url": "https://api.replicate.com/v1/predictions",
-        "jsonParameters": true,
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "HTTP-Referer",
+              "value": "https://crossword-generator.app"
+            },
+            {
+              "name": "X-Title",
+              "value": "Crossword KDP Generator"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "anthropic/claude-3.5-sonnet"
+            },
+            {
+              "name": "messages",
+              "value": "={{[\n  {\n    \"role\": \"user\",\n    \"content\": `Generate exactly 150 unique English words for crossword puzzles with the theme: ${$('Batch Controller').item.json.theme}. Requirements:\n- Words must be 3-15 letters long\n- Only common words suitable for crosswords\n- Theme: ${$('Batch Controller').item.json.wordPrompt}\n- Return ONLY the words, one per line, no explanations\n- No proper nouns, abbreviations, or plurals ending in 's'\n- Include a mix of lengths (3-15 letters)\n\nExample format:\nWORD\nPUZZLE\nCLUE\nGRID`\n  }\n]}}"
+            },
+            {
+              "name": "max_tokens",
+              "value": 2000
+            },
+            {
+              "name": "temperature",
+              "value": 0.7
+            }
+          ]
+        },
         "options": {
-          "timeout": 180000
+          "timeout": 60000
         }
       },
       "id": "e2740d95-c3b6-4a94-81b3-f712ea476955",
       "name": "Generate Word List",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 2,
+      "typeVersion": 4.2,
       "position": [
         -280,
         20
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "71ndy03xUmI9HAIF",
-          "name": "Replicate"
-        }
-      }
+      ]
     },
     {
       "parameters": {
